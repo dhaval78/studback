@@ -327,9 +327,27 @@ app.post('/register', (req, res) => {
   const maxCustId = customers.reduce((max, customer) => {
     return customer.custId > max ? customer.custId : max;
   }, 0);
+  const maxFacId = faculties.reduce((max, fac) => {
+    return fac.id > max ? fac.id : max;
+  }, 0);
+  const maxStudId = students.reduce((max, fac) => {
+    return fac.id > max ? fac.id : max;
+  }, 0);
 
 
   const newUser = { ...userData, custId: maxCustId + 1 };
+
+console.log(userData.role,userData.name)
+let facData={id:maxFacId+1,name:userData.name,courses:[]}
+if(userData.role==="Faculty")
+{
+  faculties.unshift(facData);
+}
+let studData={id:maxStudId+1,name:userData.name,dob:"",gender:"",about:"",courses:[]}
+if(userData.role==="Student")
+{
+  students.unshift(studData);
+}
 
 
   customers.push(newUser);
@@ -353,8 +371,7 @@ app.get('/getCourses',(req,res)=>{
 app.get('/getFacultyNames', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = 3;
-  const totalNum = faculties.length;
-  const totalItems = Math.ceil(totalNum / pageSize);
+ 
   
   const courseFilter = req.query.course ? req.query.course.split(',') : null;
 
@@ -364,6 +381,8 @@ app.get('/getFacultyNames', (req, res) => {
         return courseFilter.some(filterCourse => studentCourses.includes(filterCourse.toLowerCase()));
       })
     : faculties;
+    const totalNum = filteredFaculties.length;
+    const totalItems = Math.ceil(totalNum / pageSize);
     const items = filteredFaculties.slice((page - 1) * pageSize, page * pageSize);
 
   res.json({ page, items, totalItems, totalNum });
@@ -398,7 +417,6 @@ app.get('/courses/:id', (req, res) => {
     res.json(course);
   }
 });
-
 app.put('/putCourse', (req, res) => {
   const updatedCourseData = req.body;
   const courseIdToUpdate = updatedCourseData.courseId;
@@ -406,35 +424,68 @@ app.put('/putCourse', (req, res) => {
   const courseIndex = courses.findIndex((course) => course.courseId === courseIdToUpdate);
 
   if (courseIndex !== -1) {
-    
-    courses[courseIndex] = updatedCourseData;
+    const existingCourse = courses[courseIndex];
 
    
+    courses[courseIndex] = updatedCourseData;
+
     if (Array.isArray(updatedCourseData.faculty)) {
-    
       const facultyNames = updatedCourseData.faculty;
 
-     
       facultyNames.forEach((facultyName) => {
-        
-        const facultyIndex = faculties.findIndex((faculty) => faculty.name === facultyName);
-        if (facultyIndex !== -1) {
-        
-          if (!faculties[facultyIndex].courses.includes(updatedCourseData.name)) {
-            faculties[facultyIndex].courses.push(updatedCourseData.name);
+        let faculty = faculties.find((faculty) => faculty.name === facultyName);
+        if (faculty !== undefined) {
+          if (!faculty.courses.includes(existingCourse.name)) {
+            faculty.courses.push(existingCourse.name);
           }
         } else {
-          
-          faculties.push({ name: facultyName, courses: [updatedCourseData.name] });
+          faculties.push({ name: facultyName, courses: [existingCourse.name] });
+        }
+      });
+if(existingCourse.faculty!==undefined){
+      existingCourse.faculty.forEach((facultyName) => {
+        if (!updatedCourseData.faculty.includes(facultyName)) {
+          let faculty = faculties.find((faculty) => faculty.name === facultyName);
+          if (faculty !== undefined) {
+            faculty.courses = faculty.courses.filter(course => course !== existingCourse.name);
+          }
         }
       });
     }
+    }
 
-    res.json(updatedCourseData);
+    if (Array.isArray(updatedCourseData.students)) {
+      const studentNames = updatedCourseData.students;
+
+      studentNames.forEach((studentName) => {
+        let student = students.find((student) => student.name === studentName);
+        if (student !== undefined) {
+          if (!student.courses.includes(existingCourse.name)) {
+            student.courses.push(existingCourse.name);
+          }
+        } else {
+          res.status(404).json({ error: 'Student not found' });
+          return;
+        }
+      });
+
+     if(existingCourse.students!==undefined){
+      existingCourse.students.forEach((studentName) => {
+        if (!updatedCourseData.students.includes(studentName)) {
+          let student = students.find((student) => student.name === studentName);
+          if (student !== undefined) {
+            student.courses = student.courses.filter(course => course !== existingCourse.name);
+          }
+        }
+      });}
+    }
+
+    res.json(existingCourse);
   } else {
     res.status(404).json({ error: 'Course not found' });
   }
 });
+
 
 app.get('/getFacultyCourses/:name', (req, res) => {
   const facultyName = req.params.name;
@@ -497,11 +548,22 @@ app.get('/getFacultiesname',(req,res)=>{
 
 app.post('/postStudentDetails', (req, res) => {
   const studentData = req.body;
-  studentData.id = students.length + 1;
-  studentData.courses = [];
-  students.unshift(studentData);
-  res.json(studentData);
-});
+  const existingStudent = students.find(student => student.id === studentData.id && student.name === studentData.name);
+
+  if (existingStudent) {
+    
+    existingStudent.dob = studentData.dob;
+    existingStudent.gender = studentData.gender;
+    existingStudent.about = studentData.about;
+    existingStudent.courses = studentData.courses;
+    res.json(existingStudent);
+  } else {
+   
+    studentData.id = students.length + 1;
+    students.unshift(studentData);
+    res.json(studentData);
+  }
+})
 
 app.post('/postClass', (req, res) => {
  
