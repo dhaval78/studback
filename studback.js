@@ -397,9 +397,11 @@ app.get('/getClasses/:name', (req, res) => {
 
   if (Coursesc.length > 0) {
     res.json(Coursesc);
-  } else {
-    res.status(404).json({ error: "Classes not found or not assigned to any Classes" });
-  }
+  } 
+  
+  // else {
+  //   res.status(404).json({ error: "Classes not found or not assigned to any Classes" });
+  // }
 });
 
 app.get('/users', (req, res) => {
@@ -581,8 +583,35 @@ app.post('/postClass', (req, res) => {
   };
 
   classes.push(newClass);
+  const newCourseData = req.body;
+  const existingCourse = courses.find(course => course.name === newCourseData.course);
+console.log(existingCourse);
+  if (existingCourse) {
+    // If the course exists, push the faculty name into its faculty list
+    if (!existingCourse.faculty.includes(newCourseData.facultyName)) {
+      existingCourse.faculty.push(newCourseData.facultyName);
+    }
+  } else {
+    // If the course doesn't exist, create a new course
+    const newCourse = {
+      courseId: courses.length + 1,
+      name: newCourseData.name,
+      code: newCourseData.code,
+      description: newCourseData.description,
+      faculty: [newCourseData.facultyName],
+      students: [],
+    };
 
+    courses.push(newCourse);
+  }
+
+  
   res.status(201).json(newClass);
+});
+app.post('/addNewCourse', (req, res) => {
+
+
+  res.json({ message: 'New course and class added successfully' });
 });
 app.put('/editClass/:classId', (req, res) => {
   const classId = parseInt(req.params.classId);
